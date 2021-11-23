@@ -32,11 +32,41 @@ async function postNewMsg(user, text) {
 }
 
 async function getNewMsgs() {
-  /*
-   *
-   * code goes here
-   *
-   */
+  // more code to handle long-running connection, than complete connection (ex. used in `polling`)
+  let reader;
+  const utf8Decoder = new TextDecoder("utf-8");
+  try {
+    const res = await fetch("/msgs");
+    reader = res.body.getReader(); // turns reader into a readable text stream (can't use res.json which waits for response to finish)
+  } catch (e) {
+    console.log("connection error: ", e);
+  }
+  presence.innerText = "🟢";
+
+  let readerResponse;
+  let done;
+  do {
+    try {
+      readerResponse = await reader.read();
+    } catch (e) {
+      console.error("reader fail: ", e);
+      presence.innerText = "🔴";
+      return;
+    }
+    const chunk = utf8Decoder.decode(readerResponse.value, { stream: true });
+    console.log("chunk: ", chunk);
+    done = readerResponse.done;
+    if (chunk) {
+      try {
+        const json = JSON.parse(chunk);
+        allChat = json.msg;
+        render();
+      } catch (e) {
+        console.error("JSON parse error: ", e);
+      }
+    }
+  } while (!done);
+  presence.innerText = "🔴"; // should do loop ever finish (not expected to)
 }
 
 function render() {
